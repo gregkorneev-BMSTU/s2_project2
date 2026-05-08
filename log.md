@@ -65,3 +65,21 @@
 - CSV-диапазоны: `upper_points.csv` содержит `2132` точки (`x=216..2517`, `y=333..1019`), `lower_points.csv` содержит `1024` точки (`x=225..1926`, `y=95..607`).
 - Проверка `.venv/bin/python -m py_compile python_impl/main.py python_impl/segmentation.py` прошла успешно.
 - Финальная калибровка физических величин не выполнялась.
+
+## 2026-05-08 16:18:38 MSK — Этап 2: мягкая нижняя маска UA
+
+- Этап 1 не изменялся: `python_impl/preprocess.py`, выравнивание, Hough и red mask не трогались.
+- Исправлена слишком жесткая обрезка нижней панели: `LOWER_SIGNAL_Y_END_FRACTION` изменен с `0.86` на `0.93`.
+- Для сравнения добавлен strict-режим с прежней границей `LOWER_SIGNAL_Y_END_FRACTION_STRICT = 0.86`; рабочим режимом для `lower_points.csv` выбран soft.
+- В `python_impl/segmentation.py` добавлен `cleanup_mode` для lower strict/soft очистки.
+- Для soft lower-маски сохранены реальные baseline-компоненты, если они низко расположены, но имеют `height >= 10` и `area >= 30`.
+- Нижние служебные горизонтали теперь удаляются точечно: `aspect_ratio > 12`, `height <= 6`, `width > 0.10 * panel_width`, `y > 0.70 * panel_height`.
+- Для lower-трассировки увеличены `LOWER_MAX_INTERPOLATION_GAP` до `45` и `TRACE_GAP_LIMIT_LOWER` до `50`; baseline-кандидат не отбрасывается только из-за резкого перехода после разрыва.
+- В `python_impl/main.py` добавлено сохранение `lower_clean_mask_strict.png`, `lower_clean_mask_soft.png`, `lower_signal_overlay_strict.png`, `lower_signal_overlay_soft.png`.
+- Добавлен вывод `[INFO] Lower trace coverage strict`, `[INFO] Lower trace coverage soft`, `[INFO] Lower selected mode: soft`; warning выводится, если soft coverage ниже `55%`.
+- Проект перезапущен через `.venv/bin/python python_impl/main.py`, debug-файлы и CSV пересохранены.
+- Последний проверенный результат: lower strict coverage `59.64%`, lower soft coverage `81.11%`, выбран режим `soft`.
+- `lower_points.csv` теперь содержит `2070` точек (`x=225..2384`, `y=93..657`), baseline-участки около нуля восстановлены.
+- `upper_points.csv` остался на `2132` точках (`x=216..2517`, `y=333..1019`).
+- Проверка `.venv/bin/python -m py_compile python_impl/main.py python_impl/segmentation.py` прошла успешно.
+- Финальная калибровка физических величин не выполнялась.

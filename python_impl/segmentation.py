@@ -7,7 +7,7 @@ MIN_COMPONENT_WIDTH = 2
 MIN_COMPONENT_HEIGHT = 2
 BORDER_CLEAN_WIDTH = 8
 TRACE_GAP_LIMIT_UPPER = 25
-TRACE_GAP_LIMIT_LOWER = 35
+TRACE_GAP_LIMIT_LOWER = 50
 MAX_EDGE_ARTIFACT_WIDTH = 24
 MIN_EDGE_ARTIFACT_HEIGHT_FRACTION = 0.45
 TOP_TEXT_ZONE_FRACTION = 0.12
@@ -15,11 +15,13 @@ MAX_TOP_TEXT_COMPONENT_AREA = 300
 MAX_JUMP_UPPER = 80
 MAX_JUMP_LOWER = 100
 UPPER_MAX_INTERPOLATION_GAP = 20
-LOWER_MAX_INTERPOLATION_GAP = 30
-LOWER_SIGNAL_Y_END_FRACTION = 0.86
-LOWER_LONG_COMPONENT_Y_FRACTION = 0.60
-LOWER_LONG_COMPONENT_ASPECT_RATIO = 8.0
-LOWER_LONG_COMPONENT_WIDTH_FRACTION = 0.12
+LOWER_MAX_INTERPOLATION_GAP = 45
+LOWER_SIGNAL_Y_END_FRACTION = 0.93
+LOWER_SIGNAL_Y_END_FRACTION_STRICT = 0.86
+LOWER_LONG_COMPONENT_Y_FRACTION = 0.70
+LOWER_LONG_COMPONENT_ASPECT_RATIO = 12.0
+LOWER_LONG_COMPONENT_WIDTH_FRACTION = 0.10
+LOWER_LONG_COMPONENT_MAX_HEIGHT = 6
 LOWER_RIGHT_TEXT_X_FRACTION = 0.60
 LOWER_RIGHT_TEXT_Y_FRACTION = 0.55
 LOWER_RIGHT_TEXT_MAX_AREA = 1200
@@ -27,7 +29,11 @@ LOWER_RIGHT_TEXT_MAX_HEIGHT = 90
 LOWER_RIGHT_TEXT_MAX_WIDTH = 300
 LOWER_HORIZONTAL_KERNEL_WIDTH = 40
 LOWER_HORIZONTAL_MIN_WIDTH = 100
-LOWER_HORIZONTAL_MIN_ASPECT_RATIO = 8.0
+LOWER_HORIZONTAL_MIN_ASPECT_RATIO = 12.0
+LOWER_HORIZONTAL_MAX_HEIGHT = 6
+LOWER_BASELINE_KEEP_MIN_HEIGHT = 10
+LOWER_BASELINE_KEEP_MIN_AREA = 30
+LOWER_BASELINE_Y_FRACTION = 0.70
 
 
 def split_panels(aligned_image):
@@ -53,7 +59,7 @@ def extract_dark_mask(panel_image):
     return raw_mask
 
 
-def clean_signal_mask(mask, panel_type):
+def clean_signal_mask(mask, panel_type, cleanup_mode="soft"):
     """Очищает сырую маску сигнала от мелкого шума и краевых артефактов."""
     clean = mask.copy()
     mask_height, mask_width = clean.shape[:2]
@@ -70,7 +76,8 @@ def clean_signal_mask(mask, panel_type):
     debug["clean_before_roi_cut"] = clean.copy()
 
     if panel_type == "lower":
-        roi_y_end = int(mask_height * LOWER_SIGNAL_Y_END_FRACTION)
+        roi_fraction = get_lower_roi_fraction(cleanup_mode)
+        roi_y_end = int(mask_height * roi_fraction)
         clean[roi_y_end:, :] = 0
 
     debug["clean_after_roi_cut"] = clean.copy()
@@ -87,16 +94,26 @@ def clean_signal_mask(mask, panel_type):
         height = stats[component_id, cv2.CC_STAT_HEIGHT]
         area = stats[component_id, cv2.CC_STAT_AREA]
 
-        if should_remove_component(panel_type, mask_width, mask_height, x, y, width, height, area):
+        if should_remove_component(
+            panel_type,
+            mask_width,
+            mask_height,
+            x,
+            y,
+            width,
+            height,
+            area,
+            cleanup_mode,
+        ):
             removed_components[labels == component_id] = 255
             continue
         filtered[labels == component_id] = 255
 
     close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 3))
     filtered = cv2.morphologyEx(filtered, cv2.MORPH_CLOSE, close_kernel)
-    filtered, removed_horizontal = remove_lower_horizontal_artifacts(filtered, panel_type)
+    filtered, removed_horizontal = remove_lower_horizontal_artifacts(filtered, panel_type, cleanup_mode)
     removed_components = cv2.bitwise_or(removed_components, removed_horizontal)
-    filtered, removed_after_close = filter_signal_components(filtered, panel_type)
+    filtered, removed_after_close = filter_signal_components(filtered, panel_type, cleanup_mode)
     removed_components = cv2.bitwise_or(removed_components, removed_after_close)
     debug["components_removed"] = removed_components
     debug["components_kept"] = filtered.copy()
@@ -111,7 +128,7 @@ def clean_signal_mask(mask, panel_type):
     return filtered, debug
 
 
-def filter_signal_components(mask, panel_type):
+def filter_signal_components(mask, panel_type, cleanup_mode="soft"):
     """Удаляет мелкие компоненты и узкие высокие артефакты у правого края."""
     mask_height, mask_width = mask.shape[:2]
     component_count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
@@ -125,7 +142,17 @@ def filter_signal_components(mask, panel_type):
         height = stats[component_id, cv2.CC_STAT_HEIGHT]
         area = stats[component_id, cv2.CC_STAT_AREA]
 
-        if should_remove_component(panel_type, mask_width, mask_height, x, y, width, height, area):
+        if should_remove_component(
+            panel_type,
+            mask_width,
+            mask_height,
+            x,
+            y,
+            width,
+            height,
+            area,
+            cleanup_mode,
+        ):
             removed[labels == component_id] = 255
             continue
 
@@ -134,7 +161,17 @@ def filter_signal_components(mask, panel_type):
     return filtered, removed
 
 
-def should_remove_component(panel_type, mask_width, mask_height, x, y, width, height, area):
+def should_remove_component(
+    panel_type,
+    mask_width,
+    mask_height,
+    x,
+    y,
+    width,
+    height,
+    area,
+    cleanup_mode="soft",
+):
     """Решает, удалять ли компоненту, не наказывая реальные вертикальные скачки."""
     aspect_ratio = width / max(1, height)
 
@@ -156,7 +193,17 @@ def should_remove_component(panel_type, mask_width, mask_height, x, y, width, he
     if panel_type == "upper":
         return should_remove_upper_component(mask_height, y, area)
 
-    return should_remove_lower_component(panel_type, mask_width, mask_height, x, y, width, height, area)
+    return should_remove_lower_component(
+        panel_type,
+        mask_width,
+        mask_height,
+        x,
+        y,
+        width,
+        height,
+        area,
+        cleanup_mode,
+    )
 
 
 def should_remove_upper_component(mask_height, y, area):
@@ -171,7 +218,17 @@ def should_remove_upper_component(mask_height, y, area):
     return False
 
 
-def should_remove_lower_component(panel_type, mask_width, mask_height, x, y, width, height, area):
+def should_remove_lower_component(
+    panel_type,
+    mask_width,
+    mask_height,
+    x,
+    y,
+    width,
+    height,
+    area,
+    cleanup_mode="soft",
+):
     """Проверяет нижние оси, подписи и служебные горизонтальные элементы."""
     if panel_type != "lower":
         return False
@@ -183,6 +240,7 @@ def should_remove_lower_component(panel_type, mask_width, mask_height, x, y, wid
     is_lower_long_line = (
         y > mask_height * LOWER_LONG_COMPONENT_Y_FRACTION
         and aspect_ratio > LOWER_LONG_COMPONENT_ASPECT_RATIO
+        and height <= LOWER_LONG_COMPONENT_MAX_HEIGHT
         and width > mask_width * LOWER_LONG_COMPONENT_WIDTH_FRACTION
     )
     is_right_lower_text = (
@@ -193,7 +251,26 @@ def should_remove_lower_component(panel_type, mask_width, mask_height, x, y, wid
         and width < LOWER_RIGHT_TEXT_MAX_WIDTH
     )
 
-    return is_lower_long_line or is_right_lower_text
+    if is_lower_long_line or is_right_lower_text:
+        return True
+
+    is_low_signal_like = (
+        y > mask_height * LOWER_BASELINE_Y_FRACTION
+        and height >= LOWER_BASELINE_KEEP_MIN_HEIGHT
+        and area >= LOWER_BASELINE_KEEP_MIN_AREA
+    )
+    if cleanup_mode == "soft" and is_low_signal_like:
+        return False
+
+    return False
+
+
+def get_lower_roi_fraction(cleanup_mode):
+    """Возвращает границу нижней панели для strict/soft сравнения."""
+    if cleanup_mode == "strict":
+        return LOWER_SIGNAL_Y_END_FRACTION_STRICT
+
+    return LOWER_SIGNAL_Y_END_FRACTION
 
 
 def count_components(mask):
@@ -202,7 +279,7 @@ def count_components(mask):
     return max(0, component_count - 1)
 
 
-def remove_lower_horizontal_artifacts(mask, panel_type):
+def remove_lower_horizontal_artifacts(mask, panel_type, cleanup_mode="soft"):
     """Удаляет нижние почти горизонтальные служебные линии, даже если они склеены со скачком."""
     removed = np.zeros_like(mask)
 
@@ -224,7 +301,11 @@ def remove_lower_horizontal_artifacts(mask, panel_type):
         height = stats[component_id, cv2.CC_STAT_HEIGHT]
         aspect_ratio = width / max(1, height)
 
-        if width >= LOWER_HORIZONTAL_MIN_WIDTH and aspect_ratio >= LOWER_HORIZONTAL_MIN_ASPECT_RATIO:
+        if (
+            width >= LOWER_HORIZONTAL_MIN_WIDTH
+            and aspect_ratio >= LOWER_HORIZONTAL_MIN_ASPECT_RATIO
+            and height <= LOWER_HORIZONTAL_MAX_HEIGHT
+        ):
             removed[labels == component_id] = 255
 
     cleaned = mask.copy()
@@ -252,7 +333,12 @@ def extract_trace_points(mask, panel_type):
             closest_index = int(np.argmin(np.abs(ys - previous_y)))
             y = int(ys[closest_index])
 
-            if abs(y - previous_y) > max_jump:
+            is_lower_baseline_candidate = (
+                panel_type == "lower"
+                and y > mask.shape[0] * LOWER_BASELINE_Y_FRACTION
+            )
+
+            if abs(y - previous_y) > max_jump and not is_lower_baseline_candidate:
                 previous_y = None
                 continue
 
@@ -299,7 +385,14 @@ def count_large_gaps(points, gap_limit):
     return gap_count
 
 
-def make_overlay(panel_image, mask, trace_points=None, interpolated_points=None, panel_type="upper"):
+def make_overlay(
+    panel_image,
+    mask,
+    trace_points=None,
+    interpolated_points=None,
+    panel_type="upper",
+    cleanup_mode="soft",
+):
     """Накладывает маску и найденную линию на панель для отладки этапа 2."""
     overlay = panel_image.copy()
 
@@ -321,13 +414,19 @@ def make_overlay(panel_image, mask, trace_points=None, interpolated_points=None,
             cv2.circle(overlay, point, 2, (0, 255, 255), -1)
 
     if panel_type == "lower":
-        roi_y_end = int(panel_image.shape[0] * LOWER_SIGNAL_Y_END_FRACTION)
+        roi_y_end = int(panel_image.shape[0] * get_lower_roi_fraction(cleanup_mode))
         cv2.line(overlay, (0, roi_y_end), (panel_image.shape[1] - 1, roi_y_end), (255, 0, 0), 2)
 
     return overlay
 
 
-def make_trace_only(panel_shape, trace_points=None, interpolated_points=None, panel_type="upper"):
+def make_trace_only(
+    panel_shape,
+    trace_points=None,
+    interpolated_points=None,
+    panel_type="upper",
+    cleanup_mode="soft",
+):
     """Создает отдельное изображение только с трассой и интерполяцией."""
     height, width = panel_shape[:2]
     trace_image = np.zeros((height, width, 3), dtype=np.uint8)
@@ -346,7 +445,7 @@ def make_trace_only(panel_shape, trace_points=None, interpolated_points=None, pa
             cv2.circle(trace_image, point, 2, (0, 255, 255), -1)
 
     if panel_type == "lower":
-        roi_y_end = int(height * LOWER_SIGNAL_Y_END_FRACTION)
+        roi_y_end = int(height * get_lower_roi_fraction(cleanup_mode))
         cv2.line(trace_image, (0, roi_y_end), (width - 1, roi_y_end), (255, 0, 0), 2)
 
     return trace_image
@@ -355,26 +454,53 @@ def make_trace_only(panel_shape, trace_points=None, interpolated_points=None, pa
 def analyze_panel(panel_image, panel_type):
     """Выполняет стартовую сегментацию одной панели."""
     raw_mask = extract_dark_mask(panel_image)
-    clean_mask, debug = clean_signal_mask(raw_mask, panel_type)
+    clean_mask, debug = analyze_clean_mask(panel_image, raw_mask, panel_type, "soft")
+
+    if panel_type == "lower":
+        strict_clean_mask, strict_debug = analyze_clean_mask(panel_image, raw_mask, panel_type, "strict")
+        before_cleanup_points = extract_trace_points(strict_debug["clean_before_roi_cut"], panel_type)
+        debug["strict_clean_mask"] = strict_clean_mask
+        debug["strict_overlay"] = strict_debug["overlay"]
+        debug["strict_debug"] = strict_debug
+        debug["trace_points_before_cleanup"] = len(before_cleanup_points)
+        debug["trace_points_after_cleanup"] = len(debug["interpolated_trace_points"])
+        debug["selected_mode"] = "soft"
+
+    return raw_mask, clean_mask, debug["interpolated_trace_points"], debug["overlay"], debug
+
+
+def analyze_clean_mask(panel_image, raw_mask, panel_type, cleanup_mode):
+    """Строит clean-маску и трассу для выбранного режима очистки."""
+    clean_mask, debug = clean_signal_mask(raw_mask, panel_type, cleanup_mode)
     raw_trace_points = extract_trace_points(clean_mask, panel_type)
     max_gap = UPPER_MAX_INTERPOLATION_GAP if panel_type == "upper" else LOWER_MAX_INTERPOLATION_GAP
     trace_points, interpolated_points = interpolate_small_gaps(raw_trace_points, max_gap)
-    overlay = make_overlay(panel_image, clean_mask, trace_points, interpolated_points, panel_type)
-    trace_only = make_trace_only(panel_image.shape, trace_points, interpolated_points, panel_type)
+    overlay = make_overlay(
+        panel_image,
+        clean_mask,
+        trace_points,
+        interpolated_points,
+        panel_type,
+        cleanup_mode,
+    )
+    trace_only = make_trace_only(
+        panel_image.shape,
+        trace_points,
+        interpolated_points,
+        panel_type,
+        cleanup_mode,
+    )
 
     trace_gap_limit = TRACE_GAP_LIMIT_UPPER if panel_type == "upper" else TRACE_GAP_LIMIT_LOWER
     debug["raw_trace_points"] = raw_trace_points
     debug["interpolated_trace_points"] = trace_points
     debug["interpolated_points_set"] = interpolated_points
+    debug["overlay"] = overlay
     debug["trace_only"] = trace_only
     debug["raw_points_count"] = len(raw_trace_points)
     debug["interpolated_points_count"] = len(trace_points)
     debug["large_gaps_count"] = count_large_gaps(raw_trace_points, trace_gap_limit)
     debug["trace_coverage"] = 100.0 * len(trace_points) / max(1, panel_image.shape[1])
+    debug["cleanup_mode"] = cleanup_mode
 
-    if panel_type == "lower":
-        before_cleanup_points = extract_trace_points(debug["clean_before_roi_cut"], panel_type)
-        debug["trace_points_before_cleanup"] = len(before_cleanup_points)
-        debug["trace_points_after_cleanup"] = len(trace_points)
-
-    return raw_mask, clean_mask, trace_points, overlay, debug
+    return clean_mask, debug
