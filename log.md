@@ -45,3 +45,23 @@
 - Для нижней панели было `2272` точек до cleanup и стало `982` точки после cleanup; `lower_clean_mask` содержит `26621` белый пиксель.
 - Проверка `.venv/bin/python -m py_compile python_impl/main.py python_impl/segmentation.py` прошла успешно.
 - Финальная калибровка по-прежнему не выполнялась.
+
+## 2026-05-08 16:03:45 MSK — Этап 2: устойчивые маски и трассировка
+
+- Этап 1 не изменялся: `python_impl/preprocess.py`, параметры Hough и red mask для выравнивания не трогались.
+- В `python_impl/segmentation.py` переработана компонентная фильтрация этапа 2: добавлены общие правила для мелкого шума, маленьких квадратных компонент и тонких широких горизонтальных элементов.
+- Для верхней панели добавлены отдельные правила удаления мелких компонент в зоне верхних подписей, нижней границы и коротких шумовых фрагментов без удаления высоких вертикальных скачков.
+- Для нижней панели сохранен ROI-cut `LOWER_SIGNAL_Y_END_FRACTION = 0.86`, усилена фильтрация нижних горизонтальных служебных линий, правых нижних текстовых компонент и маленького шума.
+- `extract_trace_points(mask, panel_type)` теперь строит raw-трассу с ограничением скачка: `MAX_JUMP_UPPER = 80`, `MAX_JUMP_LOWER = 100`; при слишком большом скачке столбец считается пропуском.
+- Добавлена `interpolate_small_gaps(points, max_gap)`: короткие разрывы заполняются линейно, большие разрывы остаются разрывами.
+- Текущие `upper_points.csv` и `lower_points.csv` теперь содержат интерполированные ряды; дополнительно сохранены `upper_points_raw.csv`, `upper_points_interpolated.csv`, `lower_points_raw.csv`, `lower_points_interpolated.csv`.
+- Добавлены debug-файлы компонент: `upper_mask_before_components.png`, `lower_mask_before_components.png`, `upper_components_kept.png`, `lower_components_kept.png`, `upper_components_removed.png`, `lower_components_removed.png`.
+- Добавлены debug-файлы трассы: `upper_trace_only.png` и `lower_trace_only.png`.
+- Overlay обновлен: зеленым показана clean mask, красной линией трасса, желтыми точками интерполированные точки; нижняя панель сохраняет синюю линию границы рабочей области.
+- В `python_impl/main.py` добавлен вывод метрик этапа 2: компоненты до/после, удаленные компоненты, raw/interpolated points, большие разрывы и coverage по ширине.
+- Проект перезапущен через `.venv/bin/python python_impl/main.py`; debug-файлы и CSV пересохранены.
+- Последний проверенный результат: `upper_clean_mask` содержит `59557` белых пикселей, компоненты `33 -> 27`, raw/interpolated points `2017 -> 2132`, coverage `83.54%`.
+- Последний проверенный результат: `lower_clean_mask` содержит `26679` белых пикселей, компоненты `18 -> 13`, raw/interpolated points `968 -> 1024`, coverage `40.13%`; предупреждение о низком coverage ожидаемо из-за обрезки служебной нижней зоны.
+- CSV-диапазоны: `upper_points.csv` содержит `2132` точки (`x=216..2517`, `y=333..1019`), `lower_points.csv` содержит `1024` точки (`x=225..1926`, `y=95..607`).
+- Проверка `.venv/bin/python -m py_compile python_impl/main.py python_impl/segmentation.py` прошла успешно.
+- Финальная калибровка физических величин не выполнялась.

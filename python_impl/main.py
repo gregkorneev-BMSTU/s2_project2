@@ -54,6 +54,47 @@ def save_trace_points(path, trace_points):
     )
 
 
+def save_stage2_debug(debug_dir, panel_name, panel_debug):
+    """Сохраняет промежуточные маски и трассы этапа 2."""
+    save_image(
+        os.path.join(debug_dir, f"{panel_name}_mask_before_components.png"),
+        panel_debug["mask_before_components"],
+    )
+    save_image(
+        os.path.join(debug_dir, f"{panel_name}_components_kept.png"),
+        panel_debug["components_kept"],
+    )
+    save_image(
+        os.path.join(debug_dir, f"{panel_name}_components_removed.png"),
+        panel_debug["components_removed"],
+    )
+    save_image(os.path.join(debug_dir, f"{panel_name}_trace_only.png"), panel_debug["trace_only"])
+    save_trace_points(
+        os.path.join(debug_dir, f"{panel_name}_points_raw.csv"),
+        panel_debug["raw_trace_points"],
+    )
+    save_trace_points(
+        os.path.join(debug_dir, f"{panel_name}_points_interpolated.csv"),
+        panel_debug["interpolated_trace_points"],
+    )
+
+
+def print_stage2_metrics(panel_title, panel_debug, panel_width):
+    """Печатает метрики качества выделения сигнала."""
+    title = panel_title.capitalize()
+
+    print(f"[INFO] {title} components before: {panel_debug['components_before_count']}")
+    print(f"[INFO] {title} components after: {panel_debug['components_after_count']}")
+    print(f"[INFO] {title} components removed: {panel_debug['components_removed_count']}")
+    print(f"[INFO] {title} raw points: {panel_debug['raw_points_count']}")
+    print(f"[INFO] {title} interpolated points: {panel_debug['interpolated_points_count']}")
+    print(f"[INFO] {title} large gaps: {panel_debug['large_gaps_count']}")
+    print(f"[INFO] {title} trace coverage: {panel_debug['trace_coverage']:.2f}%")
+
+    if panel_debug["trace_coverage"] < 50.0:
+        print(f"[WARN] Низкое покрытие сигнала по ширине: {panel_title} ({panel_width}px)")
+
+
 def save_stage1_outputs(results_python_dir, debug_dir, stage1_result):
     """Сохраняет все debug-артефакты этапа 1."""
     red_debug = stage1_result["red_debug"]
@@ -192,7 +233,13 @@ def main():
 
     aligned_image = stage1_result["aligned_image"]
     upper_panel, lower_panel = split_panels(aligned_image)
-    upper_raw_mask, upper_clean_mask, upper_trace_points, upper_overlay, _ = analyze_panel(
+    (
+        upper_raw_mask,
+        upper_clean_mask,
+        upper_trace_points,
+        upper_overlay,
+        upper_debug,
+    ) = analyze_panel(
         upper_panel,
         "upper",
     )
@@ -212,6 +259,8 @@ def main():
     save_image(os.path.join(debug_dir, "lower_clean_mask.png"), lower_clean_mask)
     save_image(os.path.join(debug_dir, "upper_signal_overlay.png"), upper_overlay)
     save_image(os.path.join(debug_dir, "lower_signal_overlay.png"), lower_overlay)
+    save_stage2_debug(debug_dir, "upper", upper_debug)
+    save_stage2_debug(debug_dir, "lower", lower_debug)
     save_image(
         os.path.join(debug_dir, "lower_clean_before_roi_cut.png"),
         lower_debug["clean_before_roi_cut"],
@@ -235,6 +284,8 @@ def main():
     print_mask_stats("lower_raw_mask", lower_raw_mask, lower_width * lower_height)
     print_mask_stats("upper_clean_mask", upper_clean_mask, upper_width * upper_height)
     print_mask_stats("lower_clean_mask", lower_clean_mask, lower_width * lower_height)
+    print_stage2_metrics("upper", upper_debug, upper_width)
+    print_stage2_metrics("lower", lower_debug, lower_width)
     print(f"[INFO] upper_trace_points: {len(upper_trace_points)}")
     print(f"[INFO] lower trace points before cleanup: {lower_debug['trace_points_before_cleanup']}")
     print(f"[INFO] lower trace points after cleanup: {lower_debug['trace_points_after_cleanup']}")
@@ -251,6 +302,8 @@ def main():
     print("[INFO] Этап 1 завершён успешно, можно переходить к этапу 2")
     print("[INFO] Созданы upper_panel/lower_panel и raw-маски для первичной проверки сигнала")
     print("[INFO] Этап 2: созданы clean-маски и overlay для первичной проверки линий графиков")
+    print("[INFO] Этап 2 улучшен: маски очищены, трассировка обновлена")
+    print("[INFO] Проверь upper_signal_overlay.png и lower_signal_overlay.png")
 
 
 if __name__ == "__main__":
