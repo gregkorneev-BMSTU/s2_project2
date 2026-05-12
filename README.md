@@ -1,10 +1,12 @@
 # s2_project2
 
-Python-проект для обработки изображения КТГ-графика: выравнивания снимка по красной сетке, выделения верхнего и нижнего сигналов, сохранения пиксельных рядов и черновой калибровки в физические значения.
+Проект для обработки изображения КТГ-графика: выравнивания снимка по красной сетке, выделения верхнего и нижнего сигналов, сохранения пиксельных рядов и ручной калибровки в физические значения.
+
+Основная рабочая реализация сейчас находится в `python_impl/`. Дополнительно добавлен C++-прототип этапа 1 в `cpp_impl/`: он повторяет выделение красной сетки, поиск горизонтальных линий, расчет угла и сохранение выровненного изображения.
 
 ## Текущее состояние
 
-Проект состоит из трех основных этапов:
+Python-пайплайн состоит из трех основных этапов:
 
 1. **Предобработка и выравнивание** (`python_impl/preprocess.py`)
    - выделяет бледную красную сетку несколькими масками;
@@ -23,9 +25,11 @@ Python-проект для обработки изображения КТГ-гр
    - переводит `x_px` во время;
    - переводит верхнюю панель в `fhr_bpm`;
    - переводит нижнюю панель в `ua_kpa` и `ua_mmhg`;
-   - сохраняет общий `results/python/result.csv`.
+   - сохраняет регулярный общий ряд `results/python/result.csv`.
 
-Калибровка уже реализована как рабочий каркас, но координаты временных меток и шкал пока заданы ручными константами-заглушками с `TODO`. Перед использованием чисел как финальных результатов эти точки нужно уточнить по исходному изображению.
+Калибровочные координаты задаются вручную в `python_impl/calibration.py` по проверочным изображениям `upper_calibration_marks.png`, `lower_calibration_marks.png` и `time_calibration_marks.png`.
+
+C++-часть пока покрывает только первый этап: загрузку `data/input.jpg` или `data/input.png`, выделение сетки, Hough-поиск горизонталей, расчет угла и сохранение debug-артефактов в `results/cpp/`.
 
 ## Структура проекта
 
@@ -38,12 +42,27 @@ Python-проект для обработки изображения КТГ-гр
 │   ├── preprocess.py
 │   ├── segmentation.py
 │   └── calibration.py
+├── cpp_impl/
+│   ├── CMakeLists.txt
+│   ├── include/
+│   │   └── preprocess.hpp
+│   └── src/
+│       ├── main.cpp
+│       └── preprocess.cpp
 ├── results/python/
 │   ├── original.png
 │   ├── aligned.png
 │   ├── upper_panel.png
 │   ├── lower_panel.png
 │   ├── result.csv
+│   ├── result_sparse.csv
+│   ├── fhr_timeseries.csv
+│   ├── ua_timeseries.csv
+│   ├── calibration_params.txt
+│   └── debug/
+├── results/cpp/
+│   ├── original.png
+│   ├── aligned.png
 │   └── debug/
 ├── log.md
 └── README.md
@@ -51,13 +70,19 @@ Python-проект для обработки изображения КТГ-гр
 
 ## Зависимости
 
-Нужен Python 3 и пакеты:
+Для Python нужны Python 3 и пакеты:
 
 ```bash
 pip install numpy opencv-python matplotlib
 ```
 
 `matplotlib` используется только для debug-графиков калибровки. Если он не установлен, `calibration.py` использует fallback-отрисовку через OpenCV.
+
+Для C++-версии нужны:
+
+- компилятор с поддержкой C++17;
+- CMake 3.12+;
+- OpenCV для C++.
 
 ## Входные данные
 
@@ -73,7 +98,7 @@ data/input.jpg
 data/input.png
 ```
 
-## Запуск
+## Запуск Python-пайплайна
 
 Из корня проекта:
 
@@ -90,7 +115,7 @@ python python_impl/main.py
   - `results/python/debug/upper_points.csv`
   - `results/python/debug/lower_points.csv`
 
-После этого можно запустить калибровку:
+После этого запустить калибровку:
 
 ```bash
 python python_impl/calibration.py
@@ -99,8 +124,35 @@ python python_impl/calibration.py
 Она создаст:
 
 - `results/python/result.csv`
+- `results/python/result_sparse.csv`
+- `results/python/fhr_timeseries.csv`
+- `results/python/ua_timeseries.csv`
+- `results/python/calibration_params.txt`
 - `results/python/debug/calibrated_fhr_plot.png`
 - `results/python/debug/calibrated_ua_plot.png`
+- `results/python/debug/upper_calibration_marks.png`
+- `results/python/debug/lower_calibration_marks.png`
+- `results/python/debug/time_calibration_marks.png`
+
+## Запуск C++-этапа 1
+
+Из корня проекта:
+
+```bash
+cmake -S cpp_impl -B build/cpp
+cmake --build build/cpp
+./build/cpp/cpp_medical_digitizer
+```
+
+Также исполняемый файл можно запускать из `cpp_impl/`; код сам определяет, где находится корень проекта.
+
+C++-запуск создаст:
+
+- `results/cpp/original.png`
+- `results/cpp/aligned.png`
+- `results/cpp/debug/rotation.txt`
+- debug-маски красной сетки;
+- debug-изображения Hough-линий.
 
 ## Основные результаты
 
@@ -110,7 +162,11 @@ python python_impl/calibration.py
 - `aligned.png` - изображение после коррекции наклона;
 - `upper_panel.png` - верхняя панель графика;
 - `lower_panel.png` - нижняя панель графика;
-- `result.csv` - объединенный временной ряд после калибровки.
+- `result.csv` - регулярный объединенный временной ряд после калибровки с шагом 1 секунда;
+- `result_sparse.csv` - старое точное объединение рядов без регулярной сетки;
+- `fhr_timeseries.csv` - отдельный откалиброванный ряд FHR;
+- `ua_timeseries.csv` - отдельный откалиброванный ряд UA;
+- `calibration_params.txt` - параметры ручной калибровки и итоговые диапазоны значений.
 
 Ключевые debug-файлы в `results/python/debug/`:
 
@@ -120,7 +176,16 @@ python python_impl/calibration.py
 - `upper_trace_only.png` и `lower_trace_only.png` - только извлеченные трассы;
 - `upper_points_raw.csv` и `lower_points_raw.csv` - сырые точки до интерполяции;
 - `upper_points_interpolated.csv` и `lower_points_interpolated.csv` - точки после интерполяции;
+- `upper_calibration_marks.png`, `lower_calibration_marks.png`, `time_calibration_marks.png` - проверка ручных калибровочных опор;
 - `calibrated_fhr_plot.png` и `calibrated_ua_plot.png` - debug-графики откалиброванных рядов.
+
+Ключевые файлы C++-этапа в `results/cpp/`:
+
+- `original.png` - загруженное входное изображение;
+- `aligned.png` - изображение после коррекции наклона;
+- `debug/rotation.txt` - угол поворота и количество найденных линий;
+- `debug/hough_lines_all.png` и `debug/hough_lines_filtered.png` - все найденные линии и отфильтрованные горизонтали;
+- `debug/red_mask_clean.png` - итоговая маска красной сетки.
 
 ## Формат CSV
 
@@ -132,14 +197,15 @@ x_px,y_px
 217,334
 ```
 
-Финальный `result.csv`:
+Финальный регулярный `result.csv`:
 
 ```csv
 sample_idx,time_sec,fhr_bpm,ua_kpa,ua_mmhg
 0,0.000000,150.000000,NaN,NaN
+1,1.000000,150.100000,1.200000,9.000744
 ```
 
-Значения `NaN` означают, что в конкретный момент есть точка только одной из панелей.
+Значения `NaN` означают, что в конкретный момент нет надежной точки для одной из панелей или ближайшие исходные точки дальше допустимого интерполяционного разрыва.
 
 ## Проверка кода
 
@@ -149,9 +215,16 @@ sample_idx,time_sec,fhr_bpm,ua_kpa,ua_mmhg
 python -m py_compile python_impl/main.py python_impl/segmentation.py python_impl/preprocess.py python_impl/calibration.py
 ```
 
+Минимальная проверка сборки C++:
+
+```bash
+cmake -S cpp_impl -B build/cpp
+cmake --build build/cpp
+```
+
 ## Ограничения и ближайшие задачи
 
-- Уточнить ручные калибровочные точки в `python_impl/calibration.py`.
+- Довести C++-реализацию до этапов сегментации и калибровки.
 - Добавить автоматическое распознавание шкал и временных меток.
 - Вынести зависимости в `requirements.txt`.
 - Добавить тестовые проверки для функций калибровки и трассировки.
