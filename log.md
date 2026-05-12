@@ -105,7 +105,9 @@
 - README обновлен под фактическое состояние: Python описан как полная reference implementation, C++ — как реализация этапов 1 и 2 без calibration.
 - Команды Python в README заменены на `python3`, потому что в текущем macOS окружении команда `python` недоступна.
 - Добавлен `requirements.txt` с зависимостями `numpy`, `opencv-python`, `matplotlib`.
+- Последний C++ Hough: raw lines `1094`, filtered horizontal lines `1092`.
 - Зафиксированные метрики последнего состояния: Python upper coverage `83.54%`, Python lower coverage `81.11%`.
 - Зафиксированные метрики последнего состояния: C++ upper coverage `83.42%`, C++ lower coverage `80.52%`.
+- C++ segmentation/extraction близок к Python по coverage: upper отличается примерно на `0.12` п.п., lower примерно на `0.59` п.п.
 - Python calibration result: `954` строк, длительность `953` sec.
 - Следующий этап: C++ calibration и `compare_results.py` для сравнения Python/C++ результатов.
