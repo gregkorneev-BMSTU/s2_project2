@@ -300,19 +300,11 @@ def main():
     print(f"[INFO] lower trace points after cleanup: {lower_debug['trace_points_after_cleanup']}")
     print(f"[INFO] lower_trace_points: {len(lower_trace_points)}")
 
-    print("[INFO] Изображение выровнено")
-    print(f"[INFO] Угол поворота: {angle:.2f} градусов")
-    print("[INFO] Файлы сохранены в results/python/")
-    print("[INFO] Debug-файлы сохранены в results/python/debug/")
-    print("[INFO] Этап 1 повторно откалиброван под бледную красную сетку")
-    print("[INFO] Проверь red_mask_clean.png, horizontal_emphasis_mask.png и hough_lines_filtered.png")
-    print("[INFO] Этап 1 завершён успешно")
-    print("[INFO] Можно переходить к этапу 2")
-    print("[INFO] Этап 1 завершён успешно, можно переходить к этапу 2")
-    print("[INFO] Созданы upper_panel/lower_panel и raw-маски для первичной проверки сигнала")
-    print("[INFO] Этап 2: созданы clean-маски и overlay для первичной проверки линий графиков")
-    print("[INFO] Этап 2 улучшен: маски очищены, трассировка обновлена")
-    print("[INFO] Проверь upper_signal_overlay.png и lower_signal_overlay.png")
+    print("[INFO] Этап 1 завершён: изображение выровнено")
+    print("[INFO] Этап 2 завершён: сигналы выделены")
+    print("[INFO] upper_points.csv сохранён")
+    print("[INFO] lower_points.csv сохранён")
+    print("[INFO] Можно переходить к этапу 3: калибровка координат")
 
 
 if __name__ == "__main__":
