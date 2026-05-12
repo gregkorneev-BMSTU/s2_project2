@@ -1,4 +1,5 @@
 #include "preprocess.hpp"
+#include "segmentation.hpp"
 
 #include <opencv2/opencv.hpp>
 
@@ -35,6 +36,46 @@ int main() {
     cv::Mat aligned = rotateImage(image, -angle);
     cv::imwrite(resultsDir + "/aligned.png", aligned);
 
+    PanelSplit panels = splitPanels(aligned);
+    cv::imwrite(resultsDir + "/upper_panel.png", panels.upper);
+    cv::imwrite(resultsDir + "/lower_panel.png", panels.lower);
+
+    auto analyzePanel = [&](const cv::Mat& panel, const std::string& panelType) {
+        const std::string prefix = panelType == "upper" ? "upper" : "lower";
+        const std::string title = panelType == "upper" ? "Upper" : "Lower";
+
+        cv::Mat rawMask = extractDarkMask(panel);
+        cv::Mat cleanMask = cleanSignalMask(rawMask, panelType, "soft");
+        std::vector<cv::Point> rawPoints = extractTracePoints(cleanMask, panelType);
+        InterpolationResult interpolation = interpolateSmallGaps(
+            rawPoints,
+            maxInterpolationGapForPanel(panelType)
+        );
+        cv::Mat overlay = makeSignalOverlay(
+            panel,
+            cleanMask,
+            interpolation.points,
+            interpolation.interpolatedPoints,
+            panelType,
+            "soft"
+        );
+
+        cv::imwrite(debugDir + "/" + prefix + "_clean_mask.png", cleanMask);
+        cv::imwrite(debugDir + "/" + prefix + "_signal_overlay.png", overlay);
+        savePointsCsv(debugDir + "/" + prefix + "_points.csv", interpolation.points);
+
+        const int whitePixels = cv::countNonZero(cleanMask);
+        const double coverage = traceCoveragePercent(interpolation.points, panel.cols);
+
+        std::cout << "[INFO] " << title << " panel size: " << panel.cols << "x" << panel.rows << "\n";
+        std::cout << "[INFO] " << prefix << "_clean_mask white pixels: " << whitePixels << "\n";
+        std::cout << "[INFO] " << title << " extracted points: " << interpolation.points.size() << "\n";
+        std::cout << "[INFO] " << title << " coverage: " << coverage << "%\n";
+    };
+
+    analyzePanel(panels.upper, "upper");
+    analyzePanel(panels.lower, "lower");
+
     drawLines(image, getLastRawLines(), debugDir + "/hough_lines_all.png", cv::Scalar(0, 255, 0));
     cv::Mat rawOverlay = cv::imread(debugDir + "/hough_lines_all.png", cv::IMREAD_COLOR);
     if (rawOverlay.empty()) {
@@ -51,6 +92,7 @@ int main() {
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "[INFO] Итоговый угол: " << angle << " градусов\n";
     std::cout << "[INFO] Этап 1 C++ завершён\n";
+    std::cout << "[INFO] Этап 2 C++ segmentation/extraction завершён\n";
     std::cout << "[INFO] Угол поворота: " << angle << " градусов\n";
     std::cout << "[INFO] Файлы сохранены в results/cpp/\n";
 
