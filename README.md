@@ -39,7 +39,8 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 ```text
 .
 ├── data/
-│   └── input.png или input.jpg
+│   ├── input.png или input.jpg
+│   └── requirements.txt
 ├── python_impl/
 │   ├── main.py
 │   ├── preprocess.py
@@ -84,7 +85,6 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 │   ├── lower_trace_overlay.png
 │   ├── upper_trace_from_coordinates.png
 │   └── lower_trace_from_coordinates.png
-├── requirements.txt
 ├── log.md
 └── README.md
 ```
@@ -94,7 +94,7 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 Для Python нужны Python 3 и пакеты:
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r data/requirements.txt
 ```
 
 `matplotlib` используется только для debug-графиков калибровки. Если он не установлен, `calibration.py` использует fallback-отрисовку через OpenCV.

@@ -104,7 +104,7 @@
 - C++ теперь создает `results/cpp/upper_panel.png`, `results/cpp/lower_panel.png`, `results/cpp/debug/upper_clean_mask.png`, `results/cpp/debug/lower_clean_mask.png`, `results/cpp/debug/upper_signal_overlay.png`, `results/cpp/debug/lower_signal_overlay.png`, `results/cpp/debug/upper_points.csv` и `results/cpp/debug/lower_points.csv`.
 - README обновлен под фактическое состояние: Python описан как полная reference implementation, C++ — как реализация этапов 1 и 2 без calibration.
 - Команды Python в README заменены на `python3`, потому что в текущем macOS окружении команда `python` недоступна.
-- Добавлен `requirements.txt` с зависимостями `numpy`, `opencv-python`, `matplotlib`.
+- Добавлен `data/requirements.txt` с зависимостями `numpy`, `opencv-python`, `matplotlib`.
 - Последний C++ Hough: raw lines `1094`, filtered horizontal lines `1092`.
 - Зафиксированные метрики последнего состояния: Python upper coverage `83.54%`, Python lower coverage `81.11%`.
 - Зафиксированные метрики последнего состояния: C++ upper coverage `83.42%`, C++ lower coverage `80.52%`.
