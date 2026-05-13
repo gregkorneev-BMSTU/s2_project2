@@ -1,7 +1,4 @@
-# macOS
 .DS_Store
-
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,13 +6,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
-# Virtual environments
 .venv/
 venv/
 env/
-
-# CMake / native build artifacts
 build/
 */build/
 CMakeFiles/
@@ -23,7 +16,5 @@ CMakeCache.txt
 cmake_install.cmake
 compile_commands.json
 Makefile
-
-# Generated pipeline artifacts
 results/
 demonstration plots/*.png
