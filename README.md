@@ -85,6 +85,7 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 │   ├── lower_trace_overlay.png
 │   ├── upper_trace_from_coordinates.png
 │   └── lower_trace_from_coordinates.png
+├── run.sh
 ├── log.md
 └── README.md
 ```
@@ -202,15 +203,35 @@ C++-запуск создаст:
 - `results/cpp/result.csv`
 - `results/cpp/calibration_params.txt`
 
-## Единая команда общего запуска
+## Полный запуск проекта
 
-Из корня проекта, после установки Python- и C++-зависимостей:
+Из корня проекта:
 
 ```bash
-rm -rf results && find "demonstration plots" -maxdepth 1 -name '*.png' -delete && python3 python_impl/main.py && python3 python_impl/calibration.py && python3 "demonstration plots/make_demonstration_plots.py" && cmake -S cpp_impl -B build/cpp && cmake --build build/cpp && ./build/cpp/cpp_medical_digitizer
+./run.sh
 ```
 
-Эта команда сначала удаляет старую папку `results/` и PNG в `demonstration plots/`, затем последовательно запускает Python-обработку, Python-калибровку, генерацию демонстрационных графиков, сборку C++-пайплайна и C++-запуск.
+Скрипт сначала удаляет старые `results/`, `build/cpp/` и PNG в `demonstration plots/`, затем последовательно:
+
+- использует существующее Python-окружение `.venv` или создает его;
+- устанавливает Python-зависимости из `data/requirements.txt`;
+- запускает Python-обработку;
+- запускает Python-калибровку;
+- генерирует демонстрационные графики;
+- собирает C++-пайплайн через CMake;
+- запускает C++-пайплайн.
+
+Если зависимости Python уже установлены и их не нужно проверять заново:
+
+```bash
+SKIP_PIP_INSTALL=1 ./run.sh
+```
+
+Для запуска с конкретным Python-интерпретатором:
+
+```bash
+PYTHON_BIN=/path/to/python ./run.sh
+```
 
 ## Основные результаты
 
