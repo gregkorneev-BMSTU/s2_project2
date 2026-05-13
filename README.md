@@ -207,10 +207,10 @@ C++-запуск создаст:
 Из корня проекта, после установки Python- и C++-зависимостей:
 
 ```bash
-python3 python_impl/main.py && python3 python_impl/calibration.py && python3 "demonstration plots/make_demonstration_plots.py" && cmake -S cpp_impl -B build/cpp && cmake --build build/cpp && ./build/cpp/cpp_medical_digitizer
+rm -rf results && find "demonstration plots" -maxdepth 1 -name '*.png' -delete && python3 python_impl/main.py && python3 python_impl/calibration.py && python3 "demonstration plots/make_demonstration_plots.py" && cmake -S cpp_impl -B build/cpp && cmake --build build/cpp && ./build/cpp/cpp_medical_digitizer
 ```
 
-Эта команда последовательно запускает Python-обработку, Python-калибровку, генерацию демонстрационных графиков, сборку C++-пайплайна и C++-запуск.
+Эта команда сначала удаляет старую папку `results/` и PNG в `demonstration plots/`, затем последовательно запускает Python-обработку, Python-калибровку, генерацию демонстрационных графиков, сборку C++-пайплайна и C++-запуск.
 
 ## Основные результаты
 
