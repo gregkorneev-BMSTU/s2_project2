@@ -2,33 +2,33 @@
 
 Проект для обработки изображения КТГ-графика: выравнивания снимка по красной сетке, выделения верхнего и нижнего сигналов, сохранения пиксельных рядов и ручной калибровки в физические значения.
 
-`python_impl/` — полная reference implementation: preprocess/alignment, segmentation/extraction и calibration/result.csv. `cpp_impl/` покрывает эти же основные этапы и создает `results/cpp/result.csv`.
+`python/` — полная reference implementation: preprocess/alignment, segmentation/extraction и calibration/result.csv. `cpp/` покрывает эти же основные этапы и создает `results/cpp/result.csv`.
 `demonstration plots/` содержит проверочные визуализации, которые восстанавливают линии из CSV-координат и показывают откалиброванные FHR/UA ряды.
 
 ## Текущее состояние
 
 Python-пайплайн является эталонной полной реализацией и состоит из трех основных этапов:
 
-1. **Предобработка и выравнивание** (`python_impl/preprocess.py`)
+1. **Предобработка и выравнивание** (`python/preprocess.py`)
    - выделяет бледную красную сетку несколькими масками;
    - ищет почти горизонтальные линии через HoughLinesP;
    - оценивает угол наклона и сохраняет выровненное изображение.
 
-2. **Сегментация сигналов** (`python_impl/segmentation.py`)
+2. **Сегментация сигналов** (`python/segmentation.py`)
    - делит изображение на верхнюю и нижнюю панели;
    - строит маски темного сигнала;
    - очищает шум, подписи, края и служебные линии;
    - извлекает по одному `y` на каждый `x`;
    - заполняет короткие разрывы линейной интерполяцией.
 
-3. **Калибровка** (`python_impl/calibration.py`)
+3. **Калибровка** (`python/calibration.py`)
    - читает `upper_points.csv` и `lower_points.csv`;
    - переводит `x_px` во время;
    - переводит верхнюю панель в `fhr_bpm`;
    - переводит нижнюю панель в `ua_kpa` и `ua_mmhg`;
    - сохраняет регулярный общий ряд `results/python/result.csv`.
 
-Калибровочные координаты задаются вручную в `python_impl/calibration.py` по проверочным изображениям `upper_calibration_marks.png`, `lower_calibration_marks.png` и `time_calibration_marks.png`.
+Калибровочные координаты задаются вручную в `python/calibration.py` по проверочным изображениям `upper_calibration_marks.png`, `lower_calibration_marks.png` и `time_calibration_marks.png`.
 
 C++-часть покрывает загрузку `data/input.jpg` или `data/input.png`, выделение сетки, Hough-поиск горизонталей, расчет угла, разбиение на верхнюю/нижнюю панели, очистку масок сигнала, overlay, сохранение пиксельных рядов `x_px,y_px` в `results/cpp/debug/` и ручную калибровку в физический временной ряд.
 
@@ -41,12 +41,12 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 ├── data/
 │   ├── input.png или input.jpg
 │   └── requirements.txt
-├── python_impl/
+├── python/
 │   ├── main.py
 │   ├── preprocess.py
 │   ├── segmentation.py
 │   └── calibration.py
-├── cpp_impl/
+├── cpp/
 │   ├── CMakeLists.txt
 │   ├── include/
 │   │   ├── calibration.hpp
@@ -114,7 +114,7 @@ python3 -m pip install -r data/requirements.txt
 data/input.jpg
 ```
 
-Если `data/input.jpg` не найден, `python_impl/main.py` автоматически попробует открыть:
+Если `data/input.jpg` не найден, `python/main.py` автоматически попробует открыть:
 
 ```text
 data/input.png
@@ -125,7 +125,7 @@ data/input.png
 Из корня проекта:
 
 ```bash
-python3 python_impl/main.py
+python3 python/main.py
 ```
 
 Команда выполняет этапы 1 и 2:
@@ -140,7 +140,7 @@ python3 python_impl/main.py
 После этого запустить калибровку:
 
 ```bash
-python3 python_impl/calibration.py
+python3 python/calibration.py
 ```
 
 Она создаст:
@@ -178,12 +178,12 @@ python3 "demonstration plots/make_demonstration_plots.py"
 Из корня проекта:
 
 ```bash
-cmake -S cpp_impl -B build/cpp
+cmake -S cpp -B build/cpp
 cmake --build build/cpp
 ./build/cpp/cpp_medical_digitizer
 ```
 
-Также исполняемый файл можно запускать из `cpp_impl/`; код сам определяет, где находится корень проекта.
+Также исполняемый файл можно запускать из `cpp/`; код сам определяет, где находится корень проекта.
 
 C++-запуск создаст:
 
@@ -214,14 +214,15 @@ C++-запуск создаст:
 Скрипт сначала удаляет старые `results/`, `build/cpp/` и PNG в `demonstration plots/`, затем последовательно:
 
 - использует существующее Python-окружение `.venv` или создает его;
-- устанавливает Python-зависимости из `data/requirements.txt`;
+- проверяет наличие Python-зависимостей `numpy`, `opencv-python` и `matplotlib`;
+- устанавливает зависимости из `data/requirements.txt`, только если чего-то не хватает;
 - запускает Python-обработку;
 - запускает Python-калибровку;
 - генерирует демонстрационные графики;
 - собирает C++-пайплайн через CMake;
 - запускает C++-пайплайн.
 
-Если зависимости Python уже установлены и их не нужно проверять заново:
+Если проверку и установку Python-зависимостей нужно пропустить:
 
 ```bash
 SKIP_PIP_INSTALL=1 ./run.sh
@@ -305,13 +306,13 @@ sample_idx,time_sec,fhr_bpm,ua_kpa,ua_mmhg
 Минимальная проверка синтаксиса:
 
 ```bash
-python3 -m py_compile python_impl/main.py python_impl/segmentation.py python_impl/preprocess.py python_impl/calibration.py
+python3 -m py_compile python/main.py python/segmentation.py python/preprocess.py python/calibration.py
 ```
 
 Минимальная проверка сборки C++:
 
 ```bash
-cmake -S cpp_impl -B build/cpp
+cmake -S cpp -B build/cpp
 cmake --build build/cpp
 ```
 

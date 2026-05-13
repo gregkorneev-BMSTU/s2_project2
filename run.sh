@@ -48,16 +48,16 @@ else
 fi
 
 log "Running Python preprocessing and segmentation"
-"$PYTHON_BIN" python_impl/main.py
+"$PYTHON_BIN" python/main.py
 
 log "Running Python calibration"
-"$PYTHON_BIN" python_impl/calibration.py
+"$PYTHON_BIN" python/calibration.py
 
 log "Generating demonstration plots"
 "$PYTHON_BIN" "$DEMO_DIR/make_demonstration_plots.py"
 
 log "Configuring C++ build"
-cmake -S cpp_impl -B "$BUILD_DIR"
+cmake -S cpp -B "$BUILD_DIR"
 
 log "Building C++ pipeline"
 cmake --build "$BUILD_DIR"

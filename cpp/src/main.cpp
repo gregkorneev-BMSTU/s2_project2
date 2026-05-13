@@ -11,7 +11,7 @@
 #include <string>
 
 int main() {
-    // Запуск по ТЗ идет из cpp_impl, поэтому поддерживаем и корень проекта, и текущую папку.
+    // Запуск по ТЗ идет из cpp, поэтому поддерживаем и корень проекта, и текущую папку.
     const std::string projectRoot = std::filesystem::exists("data") ? "." : "..";
     const std::string resultsDir = projectRoot + "/results/cpp";
     const std::string debugDir = resultsDir + "/debug";
