@@ -10,6 +10,7 @@ find_package(OpenCV REQUIRED)
 
 add_executable(cpp_medical_digitizer
     src/main.cpp
+    src/calibration.cpp
     src/preprocess.cpp
     src/segmentation.cpp
 )

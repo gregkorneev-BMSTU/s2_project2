@@ -1,3 +1,4 @@
+#include "calibration.hpp"
 #include "preprocess.hpp"
 #include "segmentation.hpp"
 
@@ -76,6 +77,27 @@ int main() {
     analyzePanel(panels.upper, "upper");
     analyzePanel(panels.lower, "lower");
 
+    double x0 = 0.0;
+    const double secondsPerPixel = computeSecondsPerPixel(&x0);
+    const std::vector<TracePoint> upperPoints = loadTraceCsv(debugDir + "/upper_points.csv");
+    const std::vector<TracePoint> lowerPoints = loadTraceCsv(debugDir + "/lower_points.csv");
+    const std::vector<CalibratedPoint> fhrTrace =
+        calibrateTrace(upperPoints, x0, secondsPerPixel, pixelToFhr);
+    const std::vector<CalibratedPoint> uaTrace =
+        calibrateTrace(lowerPoints, x0, secondsPerPixel, pixelToUaKpa);
+    const std::vector<ResultRow> resultRows = mergeTimeSeries(fhrTrace, uaTrace);
+
+    saveResultCsv(resultsDir + "/result.csv", resultRows);
+    printCalibrationDiagnostics(x0, secondsPerPixel, fhrTrace, uaTrace, resultRows);
+    saveCalibrationParams(
+        resultsDir + "/calibration_params.txt",
+        x0,
+        secondsPerPixel,
+        fhrTrace,
+        uaTrace,
+        resultRows
+    );
+
     drawLines(image, getLastRawLines(), debugDir + "/hough_lines_all.png", cv::Scalar(0, 255, 0));
     cv::Mat rawOverlay = cv::imread(debugDir + "/hough_lines_all.png", cv::IMREAD_COLOR);
     if (rawOverlay.empty()) {
@@ -93,6 +115,9 @@ int main() {
     std::cout << "[INFO] Итоговый угол: " << angle << " градусов\n";
     std::cout << "[INFO] Этап 1 C++ завершён\n";
     std::cout << "[INFO] Этап 2 C++ segmentation/extraction завершён\n";
+    std::cout << "[INFO] C++ calibration completed\n";
+    std::cout << "[INFO] result.csv generated\n";
+    std::cout << "[INFO] Physical time series built\n";
     std::cout << "[INFO] Угол поворота: " << angle << " градусов\n";
     std::cout << "[INFO] Файлы сохранены в results/cpp/\n";
 
