@@ -21,6 +21,29 @@ require_command() {
     fi
 }
 
+python_dependencies_available() {
+    "$PYTHON_BIN" - <<'PY'
+import importlib.util
+import sys
+
+required_modules = {
+    "numpy": "numpy",
+    "opencv-python": "cv2",
+    "matplotlib": "matplotlib",
+}
+
+missing = [
+    package_name
+    for package_name, module_name in required_modules.items()
+    if importlib.util.find_spec(module_name) is None
+]
+
+if missing:
+    print(", ".join(missing))
+    sys.exit(1)
+PY
+}
+
 log "Checking required commands"
 require_command cmake
 require_command python3
@@ -41,8 +64,12 @@ rm -rf "$BUILD_DIR"
 find "$DEMO_DIR" -maxdepth 1 -type f -name '*.png' -delete
 
 if [[ "${SKIP_PIP_INSTALL:-0}" != "1" ]]; then
-    log "Installing Python dependencies from data/requirements.txt"
-    "$PYTHON_BIN" -m pip install -r data/requirements.txt
+    if missing_dependencies="$(python_dependencies_available)"; then
+        log "Python dependencies are already installed"
+    else
+        log "Installing missing Python dependencies: $missing_dependencies"
+        "$PYTHON_BIN" -m pip install -r data/requirements.txt
+    fi
 else
     log "Skipping Python dependency installation"
 fi
