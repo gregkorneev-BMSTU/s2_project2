@@ -76,6 +76,7 @@ C++-часть покрывает загрузку `data/input.jpg` или `data
 │   ├── result.csv
 │   ├── calibration_params.txt
 │   └── debug/
+├── results/result.csv
 ├── demonstration plots/
 │   ├── make_demonstration_plots.py
 │   ├── demonstration plots.md
@@ -235,6 +236,10 @@ PYTHON_BIN=/path/to/python ./run.sh
 ```
 
 ## Основные результаты
+
+Файл для сдачи сохраняется в корне результатов:
+
+- `results/result.csv` - финальный регулярный CSV из эталонного Python-пайплайна, дублирующий `results/python/result.csv`.
 
 Ключевые файлы в `results/python/`:
 

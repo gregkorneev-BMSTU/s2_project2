@@ -17,6 +17,7 @@ except ModuleNotFoundError:
 
 RESULTS_DIR = os.path.join("results", "python")
 DEBUG_DIR = os.path.join(RESULTS_DIR, "debug")
+SUBMISSION_CSV_PATH = os.path.join("results", "result.csv")
 
 ALIGNED_PATH = os.path.join(RESULTS_DIR, "aligned.png")
 UPPER_PANEL_PATH = os.path.join(RESULTS_DIR, "upper_panel.png")
@@ -619,6 +620,7 @@ def main():
     save_ua_timeseries_csv(UA_TIMESERIES_PATH, ua_trace)
     save_final_csv(RESULT_SPARSE_CSV_PATH, sparse_rows)
     save_final_csv(RESULT_CSV_PATH, result_rows)
+    save_final_csv(SUBMISSION_CSV_PATH, result_rows)
     save_calibration_mark_images()
     save_debug_plot(FHR_PLOT_PATH, fhr_trace, "fhr_bpm", "Calibrated FHR")
     save_debug_plot(UA_PLOT_PATH, ua_trace, "ua_kpa", "Calibrated UA")
@@ -628,6 +630,7 @@ def main():
 
     print("[INFO] Calibration module created")
     print("[INFO] Calibrated CSV generated")
+    print(f"[INFO] Submission CSV saved: {SUBMISSION_CSV_PATH}")
     print("[INFO] Physical time series built")
 
 
