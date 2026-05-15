@@ -9,6 +9,7 @@ BUILD_DIR="build/cpp"
 RESULTS_DIR="results"
 DEMO_DIR="demonstration plots"
 CPP_BINARY="$BUILD_DIR/cpp_medical_digitizer"
+EXPLANATORY_NOTE_PATH="$RESULTS_DIR/пояснительная записка.md"
 
 log() {
     printf '\n[run_project] %s\n' "$1"
@@ -42,6 +43,33 @@ if missing:
     print(", ".join(missing))
     sys.exit(1)
 PY
+}
+
+generate_explanatory_note() {
+    mkdir -p "$RESULTS_DIR"
+
+    cat > "$EXPLANATORY_NOTE_PATH" <<'MD'
+# Пояснительная записка к result.csv
+
+Файл `result.csv` содержит финальный откалиброванный временной ряд, полученный из изображения КТГ-графика. Каждая строка соответствует одному отсчету на регулярной временной сетке с шагом 1 секунда.
+
+## Столбцы CSV
+
+| Столбец | Описание | Единицы |
+| --- | --- | --- |
+| `sample_idx` | Порядковый номер отсчета, начиная с 0. | - |
+| `time_sec` | Время от начала восстановленного фрагмента записи. | секунды |
+| `fhr_bpm` | Частота сердечных сокращений плода, восстановленная с верхнего графика. | ударов в минуту, bpm |
+| `ua_kpa` | Маточная активность, восстановленная с нижнего графика. | кПа |
+| `ua_mmhg` | Маточная активность, пересчитанная из `ua_kpa` в миллиметры ртутного столба. | мм рт. ст. |
+
+## Примечания
+
+- `time_sec` идет с шагом 1 секунда.
+- Значение `NaN` означает, что для этого момента времени не было надежной восстановленной точки соответствующего сигнала.
+- Столбцы `ua_kpa` и `ua_mmhg` описывают один и тот же сигнал в разных единицах измерения.
+- Финальный файл для сдачи находится по пути `results/result.csv`.
+MD
 }
 
 log "Checking required commands"
@@ -79,6 +107,9 @@ log "Running Python preprocessing and segmentation"
 
 log "Running Python calibration"
 "$PYTHON_BIN" python/calibration.py
+
+log "Generating CSV explanatory note"
+generate_explanatory_note
 
 log "Generating demonstration plots"
 "$PYTHON_BIN" "$DEMO_DIR/make_demonstration_plots.py"
